@@ -231,7 +231,7 @@ GPSDriverNova::handleMessage(void)
 		_gps_position->vel_e_m_s = velocity_east;			/** GPS ground speed in m/s */
 
         _gps_position->vel_n_m_s = -(float) bestvelu.vertspd;   /** GPS ground speed in m/s */
-        _gps_position->vel_ned_valid = true;				/** Flag to indicate if NED speed is valid */
+        _gps_position->vel_ned_valid = false;				/** Flag to indicate if NED speed is valid */
         _gps_position->cog_rad = track_rad;
         _gps_position->c_variance_rad = 0.1f;
         _new_speed = true;
@@ -314,7 +314,7 @@ void GPSDriverNova::decodeInit()
 /*
  * nove board configuration script
  */
-const char comm[] = "\r\n\r\nunlogall\r\n"\
+const char comm[] = "\r\n\r\nunlogall com2\r\n"\
 		  "log bestposb ontime 0.2 nohold\r\n"\
 		  "log bestvelb ontime 0.2 nohold\r\n"\
 		  "log psrdopb onchanged\r\n"\
