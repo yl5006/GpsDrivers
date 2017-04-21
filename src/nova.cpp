@@ -328,17 +328,17 @@ int GPSDriverNova::configure(unsigned &baudrate, OutputMode output_mode)
 	}
 
 	/* try different baudrates */
-	const unsigned baudrates_to_try[] = {9600, 38400, 19200, 57600, 115200};
+//	const unsigned baudrates_to_try[] = {9600, 38400, 19200, 57600, 115200};
 
 
-	for (unsigned int baud_i = 0; baud_i < sizeof(baudrates_to_try) / sizeof(baudrates_to_try[0]); baud_i++) {
-		baudrate = baudrates_to_try[baud_i];
-		setBaudrate(baudrate);
+//	for (unsigned int baud_i = 0; baud_i < sizeof(baudrates_to_try) / sizeof(baudrates_to_try[0]); baud_i++) {
+//		baudrate = baudrates_to_try[baud_i];
+//		setBaudrate(baudrate);
 
-		if (write(comm, sizeof(comm)) != sizeof(comm)) {
-			return -1;
-		}
-	}
+//		if (write(comm, sizeof(comm)) != sizeof(comm)) {
+//			return -1;
+//		}
+//	}
 
 	return setBaudrate(115200);
 }
