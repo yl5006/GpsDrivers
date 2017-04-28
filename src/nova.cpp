@@ -212,7 +212,10 @@ GPSDriverNova::handleMessage(void)
         {
         	_gps_position->fix_type = 0;
         }
-
+        if(bestposu.diffage > 2&&(_gps_position->fix_type == 5||_gps_position->fix_type == 6))
+        {
+        	_gps_position->fix_type = 4;
+    	}
         _new_position = true;
     }
 
