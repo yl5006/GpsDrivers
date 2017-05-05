@@ -77,13 +77,15 @@
 #define UBX_WARN(...)		{GPS_WARN(__VA_ARGS__);}
 #define UBX_DEBUG(...)		{/*GPS_WARN(__VA_ARGS__);*/}
 
-GPSDriverUBX::GPSDriverUBX(Interface interface, GPSCallbackPtr callback, void *callback_user,
+GPSDriverUBX::GPSDriverUBX(Interface gpsInterface, GPSCallbackPtr callback, void *callback_user,
 			   struct vehicle_gps_position_s *gps_position,
-			   struct satellite_info_s *satellite_info) :
-	GPSHelper(callback, callback_user),
-	_gps_position(gps_position),
-	_satellite_info(satellite_info),
-	_interface(interface)
+			   struct satellite_info_s *satellite_info)
+	: GPSHelper(callback, callback_user)
+	, _gps_position(gps_position)
+	, _satellite_info(satellite_info)
+	, _interface(gpsInterface)
+	, _survey_in_acc_limit(UBX_TX_CFG_TMODE3_SVINACCLIMIT)
+	, _survey_in_min_dur(UBX_TX_CFG_TMODE3_SVINMINDUR)
 {
 	decodeInit();
 }
@@ -339,8 +341,8 @@ int GPSDriverUBX::restartSurveyIn()
 
 	memset(&_buf.payload_tx_cfg_tmode3, 0, sizeof(_buf.payload_tx_cfg_tmode3));
 	_buf.payload_tx_cfg_tmode3.flags        = UBX_TX_CFG_TMODE3_FLAGS;
-	_buf.payload_tx_cfg_tmode3.svinMinDur   = UBX_TX_CFG_TMODE3_SVINMINDUR;
-	_buf.payload_tx_cfg_tmode3.svinAccLimit = UBX_TX_CFG_TMODE3_SVINACCLIMIT;
+	_buf.payload_tx_cfg_tmode3.svinMinDur   = _survey_in_min_dur;
+	_buf.payload_tx_cfg_tmode3.svinAccLimit = _survey_in_acc_limit;
 
 	if (!sendMessage(UBX_MSG_CFG_TMODE3, (uint8_t *)&_buf, sizeof(_buf.payload_tx_cfg_tmode3))) {
 		return -1;
@@ -991,7 +993,8 @@ GPSDriverUBX::payloadRxDone()
 		    && (_buf.payload_rx_nav_pvt.valid & UBX_RX_NAV_PVT_VALID_VALIDTIME)
 		    && (_buf.payload_rx_nav_pvt.valid & UBX_RX_NAV_PVT_VALID_FULLYRESOLVED)) {
 			/* convert to unix timestamp */
-			struct tm timeinfo {};
+			struct tm timeinfo;
+			memset(&timeinfo, 0, sizeof(timeinfo));
 			timeinfo.tm_year	= _buf.payload_rx_nav_pvt.year - 1900;
 			timeinfo.tm_mon		= _buf.payload_rx_nav_pvt.month - 1;
 			timeinfo.tm_mday	= _buf.payload_rx_nav_pvt.day;
@@ -1007,7 +1010,8 @@ GPSDriverUBX::payloadRxDone()
 				// and control its drift. Since we rely on the HRT for our monotonic
 				// clock, updating it from time to time is safe.
 
-				timespec ts{};
+				timespec ts;
+				memset(&ts, 0, sizeof(ts));
 				ts.tv_sec = epoch;
 				ts.tv_nsec = _buf.payload_rx_nav_pvt.nano;
 
@@ -1095,7 +1099,8 @@ GPSDriverUBX::payloadRxDone()
 
 		if (_buf.payload_rx_nav_timeutc.valid & UBX_RX_NAV_TIMEUTC_VALID_VALIDUTC) {
 			// convert to unix timestamp
-			struct tm timeinfo = {};
+			struct tm timeinfo;
+			memset(&timeinfo, 0, sizeof(tm));
 			timeinfo.tm_year	= _buf.payload_rx_nav_timeutc.year - 1900;
 			timeinfo.tm_mon		= _buf.payload_rx_nav_timeutc.month - 1;
 			timeinfo.tm_mday	= _buf.payload_rx_nav_timeutc.day;
@@ -1113,7 +1118,8 @@ GPSDriverUBX::payloadRxDone()
 				// and control its drift. Since we rely on the HRT for our monotonic
 				// clock, updating it from time to time is safe.
 
-				timespec ts{};
+				timespec ts;
+				memset(&ts, 0, sizeof(ts));
 				ts.tv_sec = epoch;
 				ts.tv_nsec = _buf.payload_rx_nav_timeutc.nano;
 
@@ -1153,7 +1159,8 @@ GPSDriverUBX::payloadRxDone()
 			UBX_DEBUG("Survey-in status: %is cur accuracy: %imm nr obs: %i valid: %i active: %i",
 				  svin.dur, svin.meanAcc / 10, svin.obs, (int)svin.valid, (int)svin.active);
 
-			SurveyInStatus status{};
+			SurveyInStatus status;
+			memset(&status, 0, sizeof(status));
 			status.duration = svin.dur;
 			status.mean_accuracy = svin.meanAcc / 10;
 			status.flags = (svin.valid & 1) | ((svin.active & 1) << 1);
@@ -1317,7 +1324,8 @@ GPSDriverUBX::calcChecksum(const uint8_t *buffer, const uint16_t length, ubx_che
 bool
 GPSDriverUBX::configureMessageRate(const uint16_t msg, const uint8_t rate)
 {
-	ubx_payload_tx_cfg_msg_t cfg_msg{};	// don't use _buf (allow interleaved operation)
+	ubx_payload_tx_cfg_msg_t cfg_msg;	// don't use _buf (allow interleaved operation)
+	memset(&cfg_msg, 0, sizeof(cfg_msg));
 
 	cfg_msg.msg	= msg;
 	cfg_msg.rate	= rate;
@@ -1391,5 +1399,12 @@ GPSDriverUBX::fnv1_32_str(uint8_t *str, uint32_t hval)
 
 	/* return our new hash value */
 	return hval;
+}
+
+void
+GPSDriverUBX::setSurveyInSpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur)
+{
+	_survey_in_acc_limit = survey_in_acc_limit;
+	_survey_in_min_dur = survey_in_min_dur;
 }
 
