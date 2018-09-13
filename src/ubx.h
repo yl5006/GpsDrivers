@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,7 +61,7 @@
 #define UBX_CLASS_ACK		0x05
 #define UBX_CLASS_CFG		0x06
 #define UBX_CLASS_MON		0x0A
-#define UBX_CLASS_RTCM3	0xF5 /**< This is undocumented (?) */
+#define UBX_CLASS_RTCM3	0xF5 /**< Documented p370 of https://www.u-blox.com/sites/default/files/products/documents/u-blox8-M8_ReceiverDescrProtSpec_%28UBX-13003221%29_Public.pdf */
 
 /* Message IDs */
 #define UBX_ID_NAV_POSLLH	0x02
@@ -83,14 +83,24 @@
 #define UBX_ID_CFG_PRT		0x00
 #define UBX_ID_CFG_MSG		0x01
 #define UBX_ID_CFG_RATE		0x08
+#define UBX_ID_CFG_CFG		0x09
 #define UBX_ID_CFG_NAV5		0x24
 #define UBX_ID_CFG_SBAS		0x16
 #define UBX_ID_CFG_TMODE3	0x71
 #define UBX_ID_MON_VER		0x04
 #define UBX_ID_MON_HW		0x09
-#define UBX_ID_RTCM3_1005	0x05
-#define UBX_ID_RTCM3_1077	0x4D
-#define UBX_ID_RTCM3_1087	0x57
+/* UBX ID for RTCM3 output messages */
+/* Minimal messages for RTK: 1005, 1077 + (1087 or 1127) */
+/* Reduced message size using MSM4: 1005, 1074 + (1084 or 1124)  */
+#define UBX_ID_RTCM3_1005	0x05	/**< Stationary RTK reference station ARP */
+#define UBX_ID_RTCM3_1074	0x4A	/**< GPS MSM4 */
+#define UBX_ID_RTCM3_1077	0x4D	/**< GPS MSM7 */
+#define UBX_ID_RTCM3_1084	0x54	/**< GLONASS MSM4 */
+#define UBX_ID_RTCM3_1087	0x57	/**< GLONASS MSM7 */
+#define UBX_ID_RTCM3_1124	0x7C	/**< BeiDou MSM4 */
+#define UBX_ID_RTCM3_1127	0x7F	/**< BeiDou MSM7 */
+#define UBX_ID_RTCM3_1230	0xE6	/**< GLONASS code-phase biases */
+#define UBX_ID_RTCM3_4072	0xFE	/**< Reference station PVT (u-blox proprietary RTCM Message) - Used for moving baseline */
 
 /* Message Classes & IDs */
 #define UBX_MSG_NAV_POSLLH	((UBX_CLASS_NAV) | UBX_ID_NAV_POSLLH << 8)
@@ -112,6 +122,7 @@
 #define UBX_MSG_CFG_PRT		((UBX_CLASS_CFG) | UBX_ID_CFG_PRT << 8)
 #define UBX_MSG_CFG_MSG		((UBX_CLASS_CFG) | UBX_ID_CFG_MSG << 8)
 #define UBX_MSG_CFG_RATE	((UBX_CLASS_CFG) | UBX_ID_CFG_RATE << 8)
+#define UBX_MSG_CFG_CFG		((UBX_CLASS_CFG) | UBX_ID_CFG_CFG << 8)
 #define UBX_MSG_CFG_NAV5	((UBX_CLASS_CFG) | UBX_ID_CFG_NAV5 << 8)
 #define UBX_MSG_CFG_SBAS	((UBX_CLASS_CFG) | UBX_ID_CFG_SBAS << 8)
 #define UBX_MSG_CFG_TMODE3	((UBX_CLASS_CFG) | UBX_ID_CFG_TMODE3 << 8)
@@ -120,6 +131,12 @@
 #define UBX_MSG_RTCM3_1005	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1005 << 8)
 #define UBX_MSG_RTCM3_1077	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1077 << 8)
 #define UBX_MSG_RTCM3_1087	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1087 << 8)
+#define UBX_MSG_RTCM3_1074	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1074 << 8)
+#define UBX_MSG_RTCM3_1084	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1084 << 8)
+#define UBX_MSG_RTCM3_1124	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1124 << 8)
+#define UBX_MSG_RTCM3_1127	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1127 << 8)
+#define UBX_MSG_RTCM3_1230	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_1230 << 8)
+#define UBX_MSG_RTCM3_4072	((UBX_CLASS_RTCM3) | UBX_ID_RTCM3_4072 << 8)
 
 /* RX NAV-PVT message content details */
 /*   Bitfield "valid" masks */
@@ -172,16 +189,7 @@
 #define UBX_TX_CFG_TMODE3_SVINMINDUR    (3*60)		/**< survey-in: minimum duration [s] (higher=higher precision) */
 #define UBX_TX_CFG_TMODE3_SVINACCLIMIT  (10000)	/**< survey-in: position accuracy limit 0.1[mm] */
 
-/* RTCM3 */
-#define RTCM3_PREAMBLE					0xD3
-#define RTCM_INITIAL_BUFFER_LENGTH			300		/**< initial maximum message length of an RTCM message */
-
-typedef struct {
-	uint8_t			*buffer;
-	uint16_t		buffer_len;
-	uint16_t		pos;						///< next position in buffer
-	uint16_t		message_length;					///< message length without header & CRC (both 3 bytes)
-} rtcm_message_t;
+class RTCMParsing;
 
 
 /*** u-blox protocol binary message and payload definitions ***/
@@ -441,6 +449,14 @@ typedef struct {
 	uint16_t	timeRef;	/**< Alignment to reference time: 0 = UTC time, 1 = GPS time */
 } ubx_payload_tx_cfg_rate_t;
 
+/* Tx CFG-CFG */
+typedef struct {
+	uint32_t	clearMask;	/**< Clear settings */
+	uint32_t	saveMask;	/**< Save settings */
+	uint32_t	loadMask;	/**< Load settings */
+	uint8_t		deviceMask; /**< Storage devices to apply this top */
+} ubx_payload_tx_cfg_cfg_t;
+
 /* Tx CFG-NAV5 */
 typedef struct {
 	uint16_t	mask;
@@ -527,6 +543,7 @@ typedef union {
 	ubx_payload_tx_cfg_sbas_t		payload_tx_cfg_sbas;
 	ubx_payload_tx_cfg_msg_t		payload_tx_cfg_msg;
 	ubx_payload_tx_cfg_tmode3_t		payload_tx_cfg_tmode3;
+	ubx_payload_tx_cfg_cfg_t		payload_tx_cfg_cfg;
 } ubx_buf_t;
 
 #pragma pack(pop)
@@ -577,10 +594,15 @@ public:
 	int receive(unsigned timeout) override;
 	int configure(unsigned &baudrate, OutputMode output_mode) override;
 
-	int restartSurveyIn() override;
-
-	void setSurveyInSpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur);
+	void setSurveyInSpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur) override;
 private:
+
+	/**
+	 * Start or restart the survey-in procees. This is only used in RTCM ouput mode.
+	 * It will be called automatically after configuring.
+	 * @return 0 on success, <0 on error
+	 */
+	int restartSurveyIn();
 
 	/**
 	 * Parse the binary UBX packet
@@ -668,7 +690,7 @@ private:
 	bool			_use_nav_pvt{false};
 	OutputMode		_output_mode{OutputMode::GPS};
 
-	rtcm_message_t	*_rtcm_message{nullptr};
+	RTCMParsing	*_rtcm_parsing{nullptr};
 
 	const Interface		_interface;
 	uint32_t _survey_in_acc_limit;

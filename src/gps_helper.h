@@ -134,7 +134,8 @@ public:
 
 	/**
 	 * configure the device
-	 * @param baud will be set to the baudrate (output parameter)
+	 * @param baud Input and output parameter: if set to 0, the baudrate will be automatically detected and set to
+	 *             the detected baudrate. If not 0, a fixed baudrate is used.
 	 * @return 0 on success, <0 otherwise
 	 */
 	virtual int configure(unsigned &baud, OutputMode output_mode) = 0;
@@ -154,12 +155,16 @@ public:
 	void storeUpdateRates();
 
 	/**
-	 * Start or restart the survey-in procees. This is only used in RTCM ouput mode.
-	 * It will be called automatically after configuring.
-	 * @return 0 on success, <0 on error
+	 * set survey-in specs for RTK base station setup (for finding an accurate base station position
+	 * by averaging the position measurements over time).
+	 * @param survey_in_acc_limit minimum accuracy in 0.1mm
+	 * @param survey_in_min_dur minimum duration in seconds
 	 */
-	virtual int restartSurveyIn() { return 0; }
-
+	virtual void setSurveyInSpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur)
+	{
+		(void)survey_in_acc_limit;
+		(void)survey_in_min_dur;
+	}
 
 protected:
 
