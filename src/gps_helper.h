@@ -42,9 +42,8 @@
 #include <cstdint>
 #include "../../definitions.h"
 
-/* MON_VER from u-blox modules can be ~190 bytes */
 #ifndef GPS_READ_BUFFER_SIZE
-#define GPS_READ_BUFFER_SIZE 250
+#define GPS_READ_BUFFER_SIZE 150 ///< buffer size for the read() call. Messages can be longer than that.
 #endif
 
 enum class GPSCallbackType {
@@ -107,6 +106,9 @@ typedef int (*GPSCallbackPtr)(GPSCallbackType type, void *data1, int data2, void
 
 
 struct SurveyInStatus {
+	double latitude;              /**< NAN if unknown/not set [deg] */
+	double longitude;             /**< NAN if unknown/not set [deg] */
+	float altitude;               /**< NAN if unknown/not set [m] */
 	uint32_t mean_accuracy;       /**< [mm] */
 	uint32_t duration;            /**< [s] */
 	uint8_t flags;                /**< bit 0: valid, bit 1: active */
@@ -118,12 +120,12 @@ struct SurveyInStatus {
 class GPSHelper
 {
 public:
-	enum class OutputMode {
+	enum class OutputMode : uint8_t {
 		GPS = 0,    ///< normal GPS output
 		RTCM        ///< request RTCM output. This is used for (fixed position) base stations
 	};
 
-	enum class Interface {
+	enum class Interface : uint8_t {
 		UART = 0,
 		SPI
 	};
@@ -153,18 +155,6 @@ public:
 	float getVelocityUpdateRate() { return _rate_vel; }
 	void resetUpdateRates();
 	void storeUpdateRates();
-
-	/**
-	 * set survey-in specs for RTK base station setup (for finding an accurate base station position
-	 * by averaging the position measurements over time).
-	 * @param survey_in_acc_limit minimum accuracy in 0.1mm
-	 * @param survey_in_min_dur minimum duration in seconds
-	 */
-	virtual void setSurveyInSpecs(uint32_t survey_in_acc_limit, uint32_t survey_in_min_dur)
-	{
-		(void)survey_in_acc_limit;
-		(void)survey_in_min_dur;
-	}
 
 protected:
 
@@ -219,6 +209,18 @@ protected:
 	{
 		_callback(GPSCallbackType::setClock, &t, 0, _callback_user);
 	}
+
+	/**
+	 * Convert an ECEF (Earth Centered Earth Fixed) coordinate to LLA WGS84 (Lat, Lon, Alt).
+	 * Ported from: https://stackoverflow.com/a/25428344
+	 * @param ecef_x ECEF X-coordinate [m]
+	 * @param ecef_y ECEF Y-coordinate [m]
+	 * @param ecef_z ECEF Z-coordinate [m]
+	 * @param latitude [deg]
+	 * @param longitude [deg]
+	 * @param altitude [m]
+	 */
+	static void ECEF2lla(double ecef_x, double ecef_y, double ecef_z, double &latitude, double &longitude, float &altitude);
 
 	GPSCallbackPtr _callback{nullptr};
 	void *_callback_user{};
